@@ -47,20 +47,19 @@ fun MainApp(dao: AgroDao) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
-    // IA VOCALE
     val speechLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val text = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.get(0) ?: ""
         val amount = text.filter { it.isDigit() }.toDoubleOrNull()
         if (amount != null) {
-            scope.launch { dao.insertSale(Sale(productName = "Vocal: $text", amount = amount, isCredit = text.contains("crédit"))) }
+            scope.launch { dao.insertSale(Sale(productName = "Vocal: $text", amount = amount, isCredit = text.contains("crédit") || text.contains("dette"))) }
         }
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("MAMY SOJA - ERP SMART") }) },
+        topBar = { TopAppBar(title = { Text("MAMY SOJA ERP", fontWeight = FontWeight.Bold) }) },
         bottomBar = {
             NavigationBar {
-                NavigationBarItem(selected = selectedTab == 0, onClick = { selectedTab = 0 }, icon = { Icon(Icons.Default.Analytics, null) }, label = { Text("Finance") })
+                NavigationBarItem(selected = selectedTab == 0, onClick = { selectedTab = 0 }, icon = { Icon(Icons.Default.Analytics, null) }, label = { Text("IA Finance") })
                 NavigationBarItem(selected = selectedTab == 1, onClick = { selectedTab = 1 }, icon = { Icon(Icons.Default.Factory, null) }, label = { Text("Production") })
                 NavigationBarItem(selected = selectedTab == 2, onClick = { selectedTab = 2 }, icon = { Icon(Icons.Default.Share, null) }, label = { Text("Bilan") })
             }
@@ -92,19 +91,14 @@ fun MainApp(dao: AgroDao) {
             var amt by remember { mutableStateOf("") }; var isCr by remember { mutableStateOf(false) }
             AlertDialog(onDismissRequest = { showSaleDialog = false }, confirmButton = {
                 Button(onClick = { scope.launch { dao.insertSale(Sale(productName = "Vente", amount = amt.toDoubleOrNull() ?: 0.0, isCredit = isCr)); showSaleDialog = false } }) { Text("Valider") }
-            }, title = { Text("Vente") }, text = { Column { TextField(amt, { amt = it }, label = { Text("Montant") }); Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(isCr, { isCr = it }); Text("Crédit") } } })
+            }, title = { Text("Nouvelle Vente") }, text = { Column { TextField(amt, { amt = it }, label = { Text("Montant FCFA") }); Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(isCr, { isCr = it }); Text("Vente à Crédit") } } })
         }
 
         if (showProdDialog) {
             var n by remember { mutableStateOf("") }; var q by remember { mutableStateOf("") }
             AlertDialog(onDismissRequest = { showProdDialog = false }, confirmButton = {
-                Button(onClick = { scope.launch { 
-                    val prodQty = q.toDoubleOrNull() ?: 0.0
-                    // Transformation : On ajoute au stock de produit fini
-                    dao.updateStock(StockItem(name = n, quantity = prodQty, isFinishedProduct = true))
-                    showProdDialog = false 
-                } }) { Text("Produire") }
-            }, title = { Text("Nouvelle Transformation") }, text = { Column { TextField(n, { n = it }, label = { Text("Nom Produit (ex: Yaourt)") }); TextField(q, { q = it }, label = { Text("Quantité") }) } })
+                Button(onClick = { scope.launch { dao.updateStock(StockItem(name = n, quantity = q.toDoubleOrNull() ?: 0.0, isFinishedProduct = true)); showProdDialog = false } }) { Text("Produire") }
+            }, title = { Text("Transformation") }, text = { Column { TextField(n, { n = it }, label = { Text("Nom Produit") }); TextField(q, { q = it }, label = { Text("Quantité") }) } })
         }
     }
 }
@@ -119,16 +113,16 @@ fun FinanceWithPrediction(dao: AgroDao) {
     Column(modifier = Modifier.padding(16.dp)) {
         Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD))) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("PRÉVISION IA (7 JOURS)", color = Color.Blue, fontWeight = FontWeight.Bold)
-                Text("${String.format("%.0f", prediction)} FCFA", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Color.Blue)
+                Text("PRÉVISION IA (7 JOURS)", color = Color.Blue, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                Text("${String.format("%.0f", prediction)} FCFA", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Blue)
             }
         }
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(12.dp))
         Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9))) {
-            Column(modifier = Modifier.padding(16.dp)) { Text("Recettes Cash"); Text("${cash ?: 0.0} FCFA", fontSize = 24.sp, fontWeight = FontWeight.Bold) }
+            Column(modifier = Modifier.padding(16.dp)) { Text("Recettes Cash", fontSize = 12.sp); Text("${cash ?: 0.0} FCFA", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32)) }
         }
         Card(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFFDECEA))) {
-            Column(modifier = Modifier.padding(16.dp)) { Text("Dettes Clients", color = Color.Red); Text("${debt ?: 0.0} FCFA", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.Red) }
+            Column(modifier = Modifier.padding(16.dp)) { Text("Dettes Clients", fontSize = 12.sp, color = Color.Red); Text("${debt ?: 0.0} FCFA", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.Red) }
         }
     }
 }
@@ -138,8 +132,8 @@ fun StockAndProduction(dao: AgroDao) {
     val stock by dao.getAllStock().collectAsState(initial = emptyList())
     val low by dao.getLowStock().collectAsState(initial = emptyList())
     Column(modifier = Modifier.padding(16.dp)) {
-        if (low.isNotEmpty()) Card(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0))) {
-            Text("⚠️ ALERTE IA STOCK : ${low.joinToString { it.name }}", modifier = Modifier.padding(16.dp), color = Color(0xFFE65100))
+        if (low.isNotEmpty()) Card(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0))) {
+            Row(modifier = Modifier.padding(12.dp)) { Icon(Icons.Default.Warning, null, tint = Color(0xFFE65100)); Text(" IA : Stock critique (${low.joinToString { it.name }})", color = Color(0xFFE65100)) }
         }
         LazyColumn {
             items(stock) { item ->
@@ -154,11 +148,14 @@ fun StockAndProduction(dao: AgroDao) {
 fun ReportAndShare(dao: AgroDao) {
     val context = LocalContext.current
     val cash by dao.getTotalCash().collectAsState(initial = 0.0)
+    val debt by dao.getTotalCredits().collectAsState(initial = 0.0)
     Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text("RAPPORTS PROFESSIONNELS", fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(20.dp))
         Button(onClick = {
-            val txt = "BILAN AGRO ERP\nTotal: ${cash ?: 0.0} FCFA"
+            val txt = "📊 *BILAN MAMY SOJA*\nCash: ${cash ?: 0.0} FCFA\nDettes: ${debt ?: 0.0} FCFA\n*Total: ${(cash ?: 0.0) + (debt ?: 0.0)} FCFA*"
             val intent = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, txt) }
-            context.startActivity(intent)
-        }, modifier = Modifier.fillMaxWidth().height(60.dp)) { Icon(Icons.Default.Share, null); Text(" PARTAGER WHATSAPP") }
+            context.startActivity(Intent.createChooser(intent, "Envoyer Rapport"))
+        }, modifier = Modifier.fillMaxWidth().height(60.dp)) { Icon(Icons.Default.Share, null); Text(" PARTAGER SUR WHATSAPP") }
     }
 }

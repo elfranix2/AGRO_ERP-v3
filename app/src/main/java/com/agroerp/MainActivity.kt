@@ -2,11 +2,8 @@ package com.agroerp
 
 import android.content.Intent
 import android.os.Bundle
-import android.speech.RecognizerIntent
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -22,7 +19,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
-import java.util.*
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -43,58 +39,52 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainApp(dao: AgroDao) {
-    val scope = rememberCoroutineScope()
     var selectedTab by remember { mutableStateOf(0) }
     var showSaleDialog by remember { mutableStateOf(false) }
     var showStockDialog by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("AGRO ERP v3") }) },
+        topBar = { TopAppBar(title = { Text("AGRO ERP PROFESSIONNEL") }) },
         bottomBar = {
             NavigationBar {
                 NavigationBarItem(selected = selectedTab == 0, onClick = { selectedTab = 0 }, icon = { Icon(Icons.Default.Payments, null) }, label = { Text("Finance") })
                 NavigationBarItem(selected = selectedTab == 1, onClick = { selectedTab = 1 }, icon = { Icon(Icons.Default.Inventory, null) }, label = { Text("Stock") })
+                NavigationBarItem(selected = selectedTab == 2, onClick = { selectedTab = 2 }, icon = { Icon(Icons.Default.Description, null) }, label = { Text("Bilan") })
             }
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { if(selectedTab == 0) showSaleDialog = true else showStockDialog = true }, containerColor = Color(0xFF2E7D32)) {
-                Icon(Icons.Default.Add, contentDescription = null, tint = Color.White)
+            if (selectedTab != 2) {
+                FloatingActionButton(onClick = { if(selectedTab == 0) showSaleDialog = true else showStockDialog = true }, containerColor = Color(0xFF2E7D32)) {
+                    Icon(Icons.Default.Add, null, tint = Color.White)
+                }
             }
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
-            if (selectedTab == 0) FinanceScreen(dao) else StockScreen(dao)
+            when(selectedTab) {
+                0 -> FinanceScreen(dao)
+                1 -> StockScreen(dao)
+                2 -> ReportScreen(dao)
+            }
         }
 
         if (showSaleDialog) {
-            var amountText by remember { mutableStateOf("") }
-            var isCredit by remember { mutableStateOf(false) }
+            var amt by remember { mutableStateOf("") }; var isCr by remember { mutableStateOf(false) }
             AlertDialog(onDismissRequest = { showSaleDialog = false }, confirmButton = {
-                Button(onClick = {
-                    scope.launch { dao.insertSale(Sale(productName = "Manuel", amount = amountText.toDoubleOrNull() ?: 0.0, isCredit = isCredit)) }
-                    showSaleDialog = false
-                }) { Text("Valider") }
+                Button(onClick = { scope.launch { dao.insertSale(Sale(productName = "Vente", amount = amt.toDoubleOrNull() ?: 0.0, isCredit = isCr)); showSaleDialog = false } }) { Text("Valider") }
             }, title = { Text("Nouvelle Vente") }, text = {
-                Column {
-                    TextField(value = amountText, onValueChange = { amountText = it }, label = { Text("Montant FCFA") })
-                    Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(checked = isCredit, onCheckedChange = { isCredit = it }); Text("Crédit ?") }
-                }
+                Column { TextField(amt, { amt = it }, label = { Text("Montant FCFA") })
+                    Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(isCr, { isCr = it }); Text("À Crédit ?") } }
             })
         }
 
         if (showStockDialog) {
-            var name by remember { mutableStateOf("") }
-            var qty by remember { mutableStateOf("") }
+            var n by remember { mutableStateOf("") }; var q by remember { mutableStateOf("") }
             AlertDialog(onDismissRequest = { showStockDialog = false }, confirmButton = {
-                Button(onClick = {
-                    scope.launch { dao.updateStock(StockItem(name = name, quantity = qty.toDoubleOrNull() ?: 0.0, unit = "unités")) }
-                    showStockDialog = false
-                }) { Text("Ajouter") }
-            }, title = { Text("Ajouter au Stock") }, text = {
-                Column {
-                    TextField(value = name, onValueChange = { name = it }, label = { Text("Nom (ex: Soja)") })
-                    TextField(value = qty, onValueChange = { qty = it }, label = { Text("Quantité") })
-                }
+                Button(onClick = { scope.launch { dao.updateStock(StockItem(name = n, quantity = q.toDoubleOrNull() ?: 0.0, unit = "unités")); showStockDialog = false } }) { Text("Ajouter") }
+            }, title = { Text("Ajouter Stock") }, text = {
+                Column { TextField(n, { n = it }, label = { Text("Nom") }); TextField(q, { q = it }, label = { Text("Quantité") }) }
             })
         }
     }
@@ -104,45 +94,71 @@ fun MainApp(dao: AgroDao) {
 fun FinanceScreen(dao: AgroDao) {
     val cash by dao.getTotalCash().collectAsState(initial = 0.0)
     val debt by dao.getTotalCredits().collectAsState(initial = 0.0)
-
     Column(modifier = Modifier.padding(16.dp)) {
-        Text("Tableau de Bord Financier", fontWeight = FontWeight.Bold, fontSize = 20.sp)
-        Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9))) {
-            Column(modifier = Modifier.padding(16.dp)) { Text("Recettes (Cash)"); Text("${cash ?: 0.0} FCFA", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32)) }
-        }
-        Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFFDECEA))) {
-            Column(modifier = Modifier.padding(16.dp)) { Text("Dettes Clients"); Text("${debt ?: 0.0} FCFA", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.Red) }
-        }
+        StatCard("Recettes Cash", "${cash ?: 0.0} FCFA", Color(0xFFE8F5E9), Color(0xFF2E7D32))
+        StatCard("Dettes Clients", "${debt ?: 0.0} FCFA", Color(0xFFFDECEA), Color.Red)
     }
 }
 
 @Composable
 fun StockScreen(dao: AgroDao) {
-    val stockList by dao.getAllStock().collectAsState(initial = emptyList())
-    val lowStock by dao.getLowStock().collectAsState(initial = emptyList())
-
+    val stock by dao.getAllStock().collectAsState(initial = emptyList())
+    val low by dao.getLowStock().collectAsState(initial = emptyList())
     Column(modifier = Modifier.padding(16.dp)) {
-        Text("Gestion du Stock", fontWeight = FontWeight.Bold, fontSize = 20.sp)
-        
-        if (lowStock.isNotEmpty()) {
-            Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0))) {
-                Row(modifier = Modifier.padding(16.dp)) {
-                    Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFE65100))
-                    Spacer(Modifier.width(8.dp))
-                    Text("IA : Alerte ! Stock de ${lowStock.joinToString { it.name }} bas !", color = Color(0xFFE65100))
-                }
-            }
+        if (low.isNotEmpty()) Card(modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0))) {
+            Text("⚠️ IA : Stock critique pour : ${low.joinToString { it.name }}", modifier = Modifier.padding(16.dp), color = Color(0xFFE65100))
         }
-
         LazyColumn {
-            items(stockList) { item ->
-                ListItem(
-                    headlineContent = { Text(item.name) },
-                    trailingContent = { Text("${item.quantity} ${item.unit}", fontWeight = FontWeight.Bold, color = if(item.quantity < 5) Color.Red else Color.Black) },
-                    leadingContent = { Icon(Icons.Default.Inventory2, null) }
-                )
-                Divider() // ICI LE CHANGEMENT : Divider au lieu de HorizontalDivider
+            items(stock) { item ->
+                ListItem(headlineContent = { Text(item.name) }, trailingContent = { Text("${item.quantity}") })
+                Divider()
             }
         }
+    }
+}
+
+@Composable
+fun ReportScreen(dao: AgroDao) {
+    val context = LocalContext.current
+    val cash by dao.getTotalCash().collectAsState(initial = 0.0)
+    val debt by dao.getTotalCredits().collectAsState(initial = 0.0)
+    val count by dao.getSalesCount().collectAsState(initial = 0)
+
+    Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text("BILAN GÉNÉRAL", fontWeight = FontWeight.Bold, fontSize = 24.sp)
+        Spacer(Modifier.height(20.dp))
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("Nombre de ventes : $count")
+                Text("Total Cash : ${cash ?: 0.0} FCFA")
+                Text("Total Dettes : ${debt ?: 0.0} FCFA")
+                Divider(Modifier.padding(vertical = 8.dp))
+                Text("TOTAL GÉNÉRAL : ${(cash ?: 0.0) + (debt ?: 0.0)} FCFA", fontWeight = FontWeight.Bold)
+            }
+        }
+        Spacer(Modifier.height(30.dp))
+        Button(
+            onClick = {
+                val reportText = "📊 *BILAN AGRO ERP*\n\n✅ Ventes Cash: ${cash ?: 0.0} FCFA\n❌ Dettes: ${debt ?: 0.0} FCFA\n📈 *Total: ${(cash ?: 0.0) + (debt ?: 0.0)} FCFA*\n\n_Généré par AGRO ERP Smart Mobile_"
+                val sendIntent = Intent().apply {
+                    action = Intent.ACTION_SEND
+                    putExtra(Intent.EXTRA_TEXT, reportText)
+                    type = "text/plain"
+                }
+                context.startActivity(Intent.createChooser(sendIntent, "Partager le Bilan via :"))
+            },
+            modifier = Modifier.fillMaxWidth().height(60.dp)
+        ) {
+            Icon(Icons.Default.Share, null)
+            Spacer(Modifier.width(8.dp))
+            Text("PARTAGER LE BILAN WHATSAPP")
+        }
+    }
+}
+
+@Composable
+fun StatCard(t: String, v: String, c: Color, tc: Color) {
+    Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), colors = CardDefaults.cardColors(containerColor = c)) {
+        Column(modifier = Modifier.padding(16.dp)) { Text(t, color = tc); Text(v, fontSize = 28.sp, fontWeight = FontWeight.Bold, color = tc) }
     }
 }

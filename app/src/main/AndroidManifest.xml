@@ -4,7 +4,7 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <application
-        android:label="Soya Délice ERP"
+        android:label="Mamy Soja ERP"
         android:icon="@drawable/icon"
         android:theme="@android:style/Theme.DeviceDefault.Light.NoActionBar">
         
@@ -16,7 +16,5 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        
     </application>
-
 </manifest>

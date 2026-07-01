@@ -2,8 +2,11 @@ package com.agroerp
 
 import android.content.Intent
 import android.os.Bundle
+import android.speech.RecognizerIntent
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -19,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import java.util.*
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -43,9 +47,25 @@ fun MainApp(dao: AgroDao) {
     var showSaleDialog by remember { mutableStateOf(false) }
     var showStockDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    // --- LOGIQUE IA VOCALE ---
+    val speechLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val data = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+        val spokenText = data?.get(0) ?: ""
+        val numberInText = spokenText.filter { it.isDigit() }.toDoubleOrNull()
+        if (numberInText != null) {
+            scope.launch {
+                val isCredit = spokenText.lowercase().contains("crédit") || spokenText.lowercase().contains("dette")
+                dao.insertSale(Sale(productName = "Voix: $spokenText", amount = numberInText, isCredit = isCredit))
+            }
+        }
+    }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("AGRO ERP PROFESSIONNEL") }) },
+        topBar = { TopAppBar(title = { Text("AGRO ERP SMART v4") }) },
         bottomBar = {
             NavigationBar {
                 NavigationBarItem(selected = selectedTab == 0, onClick = { selectedTab = 0 }, icon = { Icon(Icons.Default.Payments, null) }, label = { Text("Finance") })
@@ -55,8 +75,26 @@ fun MainApp(dao: AgroDao) {
         },
         floatingActionButton = {
             if (selectedTab != 2) {
-                FloatingActionButton(onClick = { if(selectedTab == 0) showSaleDialog = true else showStockDialog = true }, containerColor = Color(0xFF2E7D32)) {
-                    Icon(Icons.Default.Add, null, tint = Color.White)
+                Column(horizontalAlignment = Alignment.End) {
+                    // BOUTON MICRO IA
+                    SmallFloatingActionButton(
+                        onClick = {
+                            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+                            }
+                            speechLauncher.launch(intent)
+                        },
+                        containerColor = Color.Blue,
+                        contentColor = Color.White
+                    ) { Icon(Icons.Default.Mic, null) }
+                    
+                    Spacer(Modifier.height(8.dp))
+
+                    // BOUTON AJOUT MANUEL
+                    FloatingActionButton(onClick = { if(selectedTab == 0) showSaleDialog = true else showStockDialog = true }, containerColor = Color(0xFF2E7D32)) {
+                        Icon(Icons.Default.Add, null, tint = Color.White)
+                    }
                 }
             }
         }
@@ -69,6 +107,7 @@ fun MainApp(dao: AgroDao) {
             }
         }
 
+        // --- DIALOGUES ---
         if (showSaleDialog) {
             var amt by remember { mutableStateOf("") }; var isCr by remember { mutableStateOf(false) }
             AlertDialog(onDismissRequest = { showSaleDialog = false }, confirmButton = {
@@ -97,6 +136,7 @@ fun FinanceScreen(dao: AgroDao) {
     Column(modifier = Modifier.padding(16.dp)) {
         StatCard("Recettes Cash", "${cash ?: 0.0} FCFA", Color(0xFFE8F5E9), Color(0xFF2E7D32))
         StatCard("Dettes Clients", "${debt ?: 0.0} FCFA", Color(0xFFFDECEA), Color.Red)
+        Text("\n🎙️ Astuce IA : Utilisez le micro bleu pour enregistrer une vente à la voix !", fontSize = 12.sp, color = Color.Gray)
     }
 }
 

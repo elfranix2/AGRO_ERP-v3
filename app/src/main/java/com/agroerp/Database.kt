@@ -25,17 +25,14 @@ data class StockItem(
 @Dao
 interface AgroDao {
     @Insert suspend fun insertSale(sale: Sale)
+    @Query("SELECT * FROM sales_table ORDER BY date ASC") fun getSalesHistory(): Flow<List<Sale>>
     @Query("SELECT SUM(amount) FROM sales_table WHERE isCredit = 0") fun getTotalCash(): Flow<Double?>
     @Query("SELECT SUM(amount) FROM sales_table WHERE isCredit = 1") fun getTotalCredits(): Flow<Double?>
-    @Query("SELECT COUNT(*) FROM sales_table") fun getSalesCount(): Flow<Int>
     
-    // CORRECTION ICI : Pas de corps de fonction, juste la signature
-    @Query("SELECT * FROM sales_table WHERE isCredit = 0 ORDER BY date ASC") 
-    fun getSalesHistory(): Flow<List<Sale>>
-
-    @Query("SELECT * FROM stock_table") fun getAllStock(): Flow<List<StockItem>>
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun updateStock(item: StockItem)
+    @Query("SELECT * FROM stock_table") fun getAllStock(): Flow<List<StockItem>>
     @Query("SELECT * FROM stock_table WHERE quantity < 5") fun getLowStock(): Flow<List<StockItem>>
+    @Query("SELECT * FROM stock_table WHERE name = :name LIMIT 1") suspend fun getStockByName(name: String): StockItem?
 }
 
 @Database(entities = [Sale::class, StockItem::class], version = 3)

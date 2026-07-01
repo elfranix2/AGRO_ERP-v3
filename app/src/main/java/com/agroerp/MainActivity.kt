@@ -32,7 +32,9 @@ class MainActivity : ComponentActivity() {
             val db = AppDatabase.getDatabase(context)
             val dao = db.agroDao()
             MaterialTheme(colorScheme = lightColorScheme(primary = Color(0xFF2E7D32))) {
-                MainApp(dao)
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    MainApp(dao)
+                }
             }
         }
     }
@@ -64,7 +66,6 @@ fun MainApp(dao: AgroDao) {
             if (selectedTab == 0) FinanceScreen(dao) else StockScreen(dao)
         }
 
-        // --- DIALOGUE VENTE ---
         if (showSaleDialog) {
             var amountText by remember { mutableStateOf("") }
             var isCredit by remember { mutableStateOf(false) }
@@ -81,7 +82,6 @@ fun MainApp(dao: AgroDao) {
             })
         }
 
-        // --- DIALOGUE STOCK ---
         if (showStockDialog) {
             var name by remember { mutableStateOf("") }
             var qty by remember { mutableStateOf("") }
@@ -124,13 +124,12 @@ fun StockScreen(dao: AgroDao) {
     Column(modifier = Modifier.padding(16.dp)) {
         Text("Gestion du Stock", fontWeight = FontWeight.Bold, fontSize = 20.sp)
         
-        // ALERTE IA SI STOCK BAS
         if (lowStock.isNotEmpty()) {
             Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0))) {
                 Row(modifier = Modifier.padding(16.dp)) {
                     Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFE65100))
                     Spacer(Modifier.width(8.dp))
-                    Text("IA : Alerte ! Votre stock de ${lowStock.joinToString { it.name }} est critique !", color = Color(0xFFE65100))
+                    Text("IA : Alerte ! Stock de ${lowStock.joinToString { it.name }} bas !", color = Color(0xFFE65100))
                 }
             }
         }
@@ -142,7 +141,7 @@ fun StockScreen(dao: AgroDao) {
                     trailingContent = { Text("${item.quantity} ${item.unit}", fontWeight = FontWeight.Bold, color = if(item.quantity < 5) Color.Red else Color.Black) },
                     leadingContent = { Icon(Icons.Default.Inventory2, null) }
                 )
-                HorizontalDivider()
+                Divider() // ICI LE CHANGEMENT : Divider au lieu de HorizontalDivider
             }
         }
     }

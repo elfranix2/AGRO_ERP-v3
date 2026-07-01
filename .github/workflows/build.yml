@@ -1,0 +1,23 @@
+name: GENERER_MON_APK
+on: [push]
+jobs:
+  android-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+      - name: Creer le moteur
+        run: gradle wrapper --gradle-version 8.0
+      - name: Fabrication
+        run: chmod +x gradlew && ./gradlew assembleDebug
+      - name: Telechargement
+        uses: actions/upload-artifact@v4
+        with:
+          name: AGRO-ERP-V2-INSTALLABLE
+          path: app/build/outputs/apk/debug/app-debug.apk

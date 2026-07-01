@@ -61,3 +61,5 @@ abstract class AppDatabase : RoomDatabase() {
         }
     }
 }
+@Query("SELECT * FROM sales_table WHERE isCredit = 0 ORDER BY date ASC") 
+fun getSalesHistory(): Flow<List<Sale>>
